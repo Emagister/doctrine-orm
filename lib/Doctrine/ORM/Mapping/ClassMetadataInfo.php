@@ -1435,10 +1435,6 @@ class ClassMetadataInfo implements ClassMetadata
         }
 
         if (Type::hasType($mapping['type']) && Type::getType($mapping['type'])->canRequireSQLConversion()) {
-            if (isset($mapping['id']) && $mapping['id'] === true) {
-                 throw MappingException::sqlConversionNotAllowedForIdentifiers($this->name, $mapping['fieldName'], $mapping['type']);
-            }
-
             $mapping['requireSQLConversion'] = true;
         }
     }

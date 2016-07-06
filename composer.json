@@ -1,8 +1,8 @@
 {
-    "name": "doctrine/orm",
+    "name": "emagister/doctrine-orm",
     "type": "library",
     "description": "Object-Relational-Mapper for PHP",
-    "keywords": ["orm", "database"],
+    "keywords": ["emagister", "orm", "database"],
     "homepage": "http://www.doctrine-project.org",
     "license": "MIT",
     "authors": [
