@@ -19,15 +19,18 @@
 
 namespace Doctrine\ORM;
 
-use Exception;
 use Doctrine\Common\EventManager;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Query\ResultSetMapping;
 use Doctrine\ORM\Proxy\ProxyFactory;
 use Doctrine\ORM\Query\FilterCollection;
 use Doctrine\Common\Util\ClassUtils;
+use Throwable;
+use const E_USER_DEPRECATED;
+use function trigger_error;
 
 /**
  * The EntityManager is the central access point to ORM functionality.
@@ -237,7 +240,7 @@ use Doctrine\Common\Util\ClassUtils;
             $this->conn->commit();
 
             return $return ?: true;
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $this->close();
             $this->conn->rollBack();
 
@@ -353,6 +356,13 @@ use Doctrine\Common\Util\ClassUtils;
      */
     public function flush($entity = null)
     {
+        if ($entity !== null) {
+            @trigger_error(
+                'Calling ' . __METHOD__ . '() with any arguments to flush specific entities is deprecated and will not be supported in Doctrine ORM 3.0.',
+                E_USER_DEPRECATED
+            );
+        }
+
         $this->errorIfClosed();
 
         $this->unitOfWork->commit($entity);
@@ -380,12 +390,16 @@ use Doctrine\Common\Util\ClassUtils;
     {
         $class = $this->metadataFactory->getMetadataFor(ltrim($entityName, '\\'));
 
+        if ($lockMode !== null) {
+            $this->checkLockRequirements($lockMode, $class);
+        }
+
         if ( ! is_array($id)) {
             if ($class->isIdentifierComposite) {
                 throw ORMInvalidArgumentException::invalidCompositeIdentifier();
             }
 
-            $id = array($class->identifier[0] => $id);
+            $id = [$class->identifier[0] => $id];
         }
 
         foreach ($id as $i => $value) {
@@ -398,7 +412,7 @@ use Doctrine\Common\Util\ClassUtils;
             }
         }
 
-        $sortedId = array();
+        $sortedId = [];
 
         foreach ($class->identifier as $identifier) {
             if ( ! isset($id[$identifier])) {
@@ -441,10 +455,6 @@ use Doctrine\Common\Util\ClassUtils;
 
         switch (true) {
             case LockMode::OPTIMISTIC === $lockMode:
-                if ( ! $class->isVersioned) {
-                    throw OptimisticLockException::notVersioned($class->name);
-                }
-
                 $entity = $persister->load($sortedId);
 
                 $unitOfWork->lock($entity, $lockMode, $lockVersion);
@@ -453,11 +463,7 @@ use Doctrine\Common\Util\ClassUtils;
 
             case LockMode::PESSIMISTIC_READ === $lockMode:
             case LockMode::PESSIMISTIC_WRITE === $lockMode:
-                if ( ! $this->getConnection()->isTransactionActive()) {
-                    throw TransactionRequiredException::transactionRequired();
-                }
-
-                return $persister->load($sortedId, null, null, array(), $lockMode);
+                return $persister->load($sortedId, null, null, [], $lockMode);
 
             default:
                 return $persister->loadById($sortedId);
@@ -472,10 +478,10 @@ use Doctrine\Common\Util\ClassUtils;
         $class = $this->metadataFactory->getMetadataFor(ltrim($entityName, '\\'));
 
         if ( ! is_array($id)) {
-            $id = array($class->identifier[0] => $id);
+            $id = [$class->identifier[0] => $id];
         }
 
-        $sortedId = array();
+        $sortedId = [];
 
         foreach ($class->identifier as $identifier) {
             if ( ! isset($id[$identifier])) {
@@ -501,7 +507,7 @@ use Doctrine\Common\Util\ClassUtils;
 
         $entity = $this->proxyFactory->getProxy($class->name, $sortedId);
 
-        $this->unitOfWork->registerManaged($entity, $sortedId, array());
+        $this->unitOfWork->registerManaged($entity, $sortedId, []);
 
         return $entity;
     }
@@ -519,14 +525,14 @@ use Doctrine\Common\Util\ClassUtils;
         }
 
         if ( ! is_array($identifier)) {
-            $identifier = array($class->identifier[0] => $identifier);
+            $identifier = [$class->identifier[0] => $identifier];
         }
 
         $entity = $class->newInstance();
 
         $class->setIdentifierValues($entity, $identifier);
 
-        $this->unitOfWork->registerManaged($entity, $identifier, array());
+        $this->unitOfWork->registerManaged($entity, $identifier, []);
         $this->unitOfWork->markReadOnly($entity);
 
         return $entity;
@@ -539,10 +545,29 @@ use Doctrine\Common\Util\ClassUtils;
      * @param string|null $entityName if given, only entities of this type will get detached
      *
      * @return void
+     *
+     * @throws ORMInvalidArgumentException                           if a non-null non-string value is given
+     * @throws \Doctrine\Common\Persistence\Mapping\MappingException if a $entityName is given, but that entity is not
+     *                                                               found in the mappings
      */
     public function clear($entityName = null)
     {
-        $this->unitOfWork->clear($entityName);
+        if (null !== $entityName && ! is_string($entityName)) {
+            throw ORMInvalidArgumentException::invalidEntityName($entityName);
+        }
+
+        if ($entityName !== null) {
+            @trigger_error(
+                'Calling ' . __METHOD__ . '() with any arguments to clear specific entities is deprecated and will not be supported in Doctrine ORM 3.0.',
+                E_USER_DEPRECATED
+            );
+        }
+
+        $this->unitOfWork->clear(
+            null === $entityName
+                ? null
+                : $this->metadataFactory->getMetadataFor($entityName)->getName()
+        );
     }
 
     /**
@@ -640,9 +665,13 @@ use Doctrine\Common\Util\ClassUtils;
      * @return void
      *
      * @throws ORMInvalidArgumentException
+     *
+     * @deprecated 2.7 This method is being removed from the ORM and won't have any replacement
      */
     public function detach($entity)
     {
+        @trigger_error('Method ' . __METHOD__ . '() is deprecated and will be removed in Doctrine ORM 3.0.', E_USER_DEPRECATED);
+
         if ( ! is_object($entity)) {
             throw ORMInvalidArgumentException::invalidObject('EntityManager#detach()', $entity);
         }
@@ -661,9 +690,13 @@ use Doctrine\Common\Util\ClassUtils;
      *
      * @throws ORMInvalidArgumentException
      * @throws ORMException
+     *
+     * @deprecated 2.7 This method is being removed from the ORM and won't have any replacement
      */
     public function merge($entity)
     {
+        @trigger_error('Method ' . __METHOD__ . '() is deprecated and will be removed in Doctrine ORM 3.0.', E_USER_DEPRECATED);
+
         if ( ! is_object($entity)) {
             throw ORMInvalidArgumentException::invalidObject('EntityManager#merge()', $entity);
         }
@@ -675,12 +708,11 @@ use Doctrine\Common\Util\ClassUtils;
 
     /**
      * {@inheritDoc}
-     *
-     * @todo Implementation need. This is necessary since $e2 = clone $e1; throws an E_FATAL when access anything on $e:
-     * Fatal error: Maximum function nesting level of '100' reached, aborting!
      */
     public function copy($entity, $deep = false)
     {
+        @trigger_error('Method ' . __METHOD__ . '() is deprecated and will be removed in Doctrine ORM 3.0.', E_USER_DEPRECATED);
+
         throw new \BadMethodCallException("Not implemented.");
     }
 
@@ -697,7 +729,7 @@ use Doctrine\Common\Util\ClassUtils;
      *
      * @param string $entityName The name of the entity.
      *
-     * @return \Doctrine\ORM\EntityRepository The repository class.
+     * @return \Doctrine\Common\Persistence\ObjectRepository|\Doctrine\ORM\EntityRepository The repository class.
      */
     public function getRepository($entityName)
     {
@@ -860,7 +892,13 @@ use Doctrine\Common\Util\ClassUtils;
         }
 
         if ( ! $connection instanceof Connection) {
-            throw new \InvalidArgumentException("Invalid argument: " . $connection);
+            throw new \InvalidArgumentException(
+                sprintf(
+                    'Invalid $connection argument of type %s given%s.',
+                    is_object($connection) ? get_class($connection) : gettype($connection),
+                    is_object($connection) ? '' : ': "' . $connection . '"'
+                )
+            );
         }
 
         if ($eventManager !== null && $connection->getEventManager() !== $eventManager) {
@@ -896,5 +934,27 @@ use Doctrine\Common\Util\ClassUtils;
     public function hasFilters()
     {
         return null !== $this->filterCollection;
+    }
+
+    /**
+     * @param int $lockMode
+     * @param ClassMetadata $class
+     * @throws OptimisticLockException
+     * @throws TransactionRequiredException
+     */
+    private function checkLockRequirements(int $lockMode, ClassMetadata $class): void
+    {
+        switch ($lockMode) {
+            case LockMode::OPTIMISTIC:
+                if (!$class->isVersioned) {
+                    throw OptimisticLockException::notVersioned($class->name);
+                }
+                break;
+            case LockMode::PESSIMISTIC_READ:
+            case LockMode::PESSIMISTIC_WRITE:
+                if (!$this->getConnection()->isTransactionActive()) {
+                    throw TransactionRequiredException::transactionRequired();
+                }
+        }
     }
 }

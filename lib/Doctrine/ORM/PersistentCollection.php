@@ -25,6 +25,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Selectable;
 use Doctrine\Common\Collections\Criteria;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use function get_class;
 
 /**
  * A PersistentCollection represents a collection of elements that have persistent state.
@@ -49,7 +50,7 @@ final class PersistentCollection extends AbstractLazyCollection implements Selec
      *
      * @var array
      */
-    private $snapshot = array();
+    private $snapshot = [];
 
     /**
      * The entity that owns this collection.
@@ -373,11 +374,7 @@ final class PersistentCollection extends AbstractLazyCollection implements Selec
 
             $persister = $this->em->getUnitOfWork()->getCollectionPersister($this->association);
 
-            if ($persister->removeElement($this, $element)) {
-                return $element;
-            }
-
-            return null;
+            return $persister->removeElement($this, $element);
         }
 
         $removed = parent::removeElement($element);
@@ -451,7 +448,7 @@ final class PersistentCollection extends AbstractLazyCollection implements Selec
      */
     public function count()
     {
-        if ( ! $this->initialized && $this->association['fetch'] === ClassMetadata::FETCH_EXTRA_LAZY) {
+        if (! $this->initialized && $this->association !== null && $this->association['fetch'] === ClassMetadata::FETCH_EXTRA_LAZY) {
             $persister = $this->em->getUnitOfWork()->getCollectionPersister($this->association);
 
             return $persister->count($this) + ($this->isDirty ? $this->collection->count() : 0);
@@ -514,10 +511,11 @@ final class PersistentCollection extends AbstractLazyCollection implements Selec
     public function offsetSet($offset, $value)
     {
         if ( ! isset($offset)) {
-            return $this->add($value);
+            $this->add($value);
+            return;
         }
 
-        return $this->set($offset, $value);
+        $this->set($offset, $value);
     }
 
     /**
@@ -542,6 +540,8 @@ final class PersistentCollection extends AbstractLazyCollection implements Selec
     public function clear()
     {
         if ($this->initialized && $this->isEmpty()) {
+            $this->collection->clear();
+
             return;
         }
 
@@ -583,7 +583,7 @@ final class PersistentCollection extends AbstractLazyCollection implements Selec
      */
     public function __sleep()
     {
-        return array('collection', 'initialized');
+        return ['collection', 'initialized'];
     }
 
     /**
@@ -631,7 +631,7 @@ final class PersistentCollection extends AbstractLazyCollection implements Selec
         $this->initialize();
 
         $this->owner    = null;
-        $this->snapshot = array();
+        $this->snapshot = [];
 
         $this->changed();
     }
@@ -669,6 +669,7 @@ final class PersistentCollection extends AbstractLazyCollection implements Selec
 
         $criteria = clone $criteria;
         $criteria->where($expression);
+        $criteria->orderBy($criteria->getOrderings() ?: $this->association['orderBy'] ?? []);
 
         $persister = $this->em->getUnitOfWork()->getEntityPersister($this->association['targetEntity']);
 
@@ -693,21 +694,39 @@ final class PersistentCollection extends AbstractLazyCollection implements Selec
     protected function doInitialize()
     {
         // Has NEW objects added through add(). Remember them.
-        $newObjects = array();
+        $newlyAddedDirtyObjects = [];
 
         if ($this->isDirty) {
-            $newObjects = $this->collection->toArray();
+            $newlyAddedDirtyObjects = $this->collection->toArray();
         }
 
         $this->collection->clear();
         $this->em->getUnitOfWork()->loadCollection($this);
         $this->takeSnapshot();
 
-        // Reattach NEW objects added through add(), if any.
-        if ($newObjects) {
-            foreach ($newObjects as $obj) {
-                $this->collection->add($obj);
-            }
+        if ($newlyAddedDirtyObjects) {
+            $this->restoreNewObjectsInDirtyCollection($newlyAddedDirtyObjects);
+        }
+    }
+
+    /**
+     * @param object[] $newObjects
+     *
+     * Note: the only reason why this entire looping/complexity is performed via `spl_object_hash`
+     *       is because we want to prevent using `array_udiff()`, which is likely to cause very
+     *       high overhead (complexity of O(n^2)). `array_diff_key()` performs the operation in
+     *       core, which is faster than using a callback for comparisons
+     */
+    private function restoreNewObjectsInDirtyCollection(array $newObjects) : void
+    {
+        $loadedObjects               = $this->collection->toArray();
+        $newObjectsByOid             = \array_combine(\array_map('spl_object_hash', $newObjects), $newObjects);
+        $loadedObjectsByOid          = \array_combine(\array_map('spl_object_hash', $loadedObjects), $loadedObjects);
+        $newObjectsThatWereNotLoaded = \array_diff_key($newObjectsByOid, $loadedObjectsByOid);
+
+        if ($newObjectsThatWereNotLoaded) {
+            // Reattach NEW objects added through add(), if any.
+            \array_walk($newObjectsThatWereNotLoaded, [$this->collection, 'add']);
 
             $this->isDirty = true;
         }

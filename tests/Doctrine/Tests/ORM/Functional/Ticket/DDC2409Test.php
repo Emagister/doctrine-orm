@@ -5,12 +5,15 @@ namespace Doctrine\Tests\ORM\Functional\Ticket;
 use Doctrine\ORM\UnitOfWork;
 use Doctrine\Tests\Models\CMS\CmsUser;
 use Doctrine\Tests\Models\CMS\CmsArticle;
+use Doctrine\Tests\VerifyDeprecations;
 
 /**
  * @group DDC-2409
  */
 class DDC2409Test extends \Doctrine\Tests\OrmFunctionalTestCase
 {
+    use VerifyDeprecations;
+
     public function setUp()
     {
         $this->useModelSet('cms');
@@ -21,7 +24,7 @@ class DDC2409Test extends \Doctrine\Tests\OrmFunctionalTestCase
     {
         $em     = $this->_em;
         $uow    = $em->getUnitOfWork();
-        
+
         $originalArticle  = new CmsArticle();
         $originalUser     = new CmsUser();
 
@@ -39,7 +42,7 @@ class DDC2409Test extends \Doctrine\Tests\OrmFunctionalTestCase
         $em->flush();
         $em->clear();
 
-        $article  = $em->find('Doctrine\Tests\Models\CMS\CmsArticle', $originalArticle->id);
+        $article  = $em->find(CmsArticle::class, $originalArticle->id);
         $user     = new CmsUser();
 
         $user->name     = 'Doctrine Bot 2.0';
@@ -53,8 +56,8 @@ class DDC2409Test extends \Doctrine\Tests\OrmFunctionalTestCase
         $this->assertEquals(UnitOfWork::STATE_MANAGED, $uow->getEntityState($article));
         $this->assertEquals(UnitOfWork::STATE_NEW, $uow->getEntityState($user));
 
-        $em->detach($user);
-        $em->detach($article);
+        $em->clear(CmsUser::class);
+        $em->clear(CmsArticle::class);
 
         $userMerged     = $em->merge($user);
         $articleMerged  = $em->merge($article);
@@ -68,5 +71,6 @@ class DDC2409Test extends \Doctrine\Tests\OrmFunctionalTestCase
         $this->assertNotSame($article, $articleMerged);
         $this->assertNotSame($userMerged, $articleMerged->user);
         $this->assertSame($user, $articleMerged->user);
+        $this->assertHasDeprecationMessages();
     }
 }

@@ -25,7 +25,7 @@ class DriverMock implements Driver
     /**
      * {@inheritdoc}
      */
-    public function connect(array $params, $username = null, $password = null, array $driverOptions = array())
+    public function connect(array $params, $username = null, $password = null, array $driverOptions = [])
     {
         return new DriverConnectionMock();
     }
@@ -48,9 +48,9 @@ class DriverMock implements Driver
     {
         if ($this->_schemaManagerMock == null) {
             return new SchemaManagerMock($conn);
-        } else {
-            return $this->_schemaManagerMock;
         }
+
+        return $this->_schemaManagerMock;
     }
 
     /* MOCK API */

@@ -37,6 +37,8 @@ use Doctrine\ORM\Utility\IdentifierFlattener;
  * @author Giorgio Sironi <piccoloprincipeazzurro@gmail.com>
  * @author Marco Pivetta  <ocramius@gmail.com>
  * @since 2.0
+ *
+ * @deprecated 2.7 This class is being removed from the ORM and won't have any replacement
  */
 class ProxyFactory extends AbstractProxyFactory
 {
@@ -76,7 +78,7 @@ class ProxyFactory extends AbstractProxyFactory
     {
         $proxyGenerator = new ProxyGenerator($proxyDir, $proxyNs);
 
-        $proxyGenerator->setPlaceholder('baseProxyInterface', 'Doctrine\ORM\Proxy\Proxy');
+        $proxyGenerator->setPlaceholder('baseProxyInterface', Proxy::class);
         parent::__construct($proxyGenerator, $em->getMetadataFactory(), $autoGenerate);
 
         $this->em                  = $em;
@@ -91,7 +93,9 @@ class ProxyFactory extends AbstractProxyFactory
     protected function skipClass(ClassMetadata $metadata)
     {
         /* @var $metadata \Doctrine\ORM\Mapping\ClassMetadataInfo */
-        return $metadata->isMappedSuperclass || $metadata->getReflectionClass()->isAbstract();
+        return $metadata->isMappedSuperclass
+            || $metadata->isEmbeddedClass
+            || $metadata->getReflectionClass()->isAbstract();
     }
 
     /**
@@ -196,7 +200,7 @@ class ProxyFactory extends AbstractProxyFactory
                 );
             }
 
-            foreach ($class->getReflectionClass()->getProperties() as $property) {
+            foreach ($class->getReflectionProperties() as $property) {
                 if ( ! $class->hasField($property->name) && ! $class->hasAssociation($property->name)) {
                     continue;
                 }

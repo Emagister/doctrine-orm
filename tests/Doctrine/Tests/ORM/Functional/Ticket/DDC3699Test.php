@@ -3,17 +3,26 @@
 use Doctrine\Tests\Models\DDC3699\DDC3699RelationOne;
 use Doctrine\Tests\Models\DDC3699\DDC3699RelationMany;
 use Doctrine\Tests\Models\DDC3699\DDC3699Child;
+use Doctrine\Tests\VerifyDeprecations;
 
 /**
  * @group DDC-3699
  */
 class DDC3597Test extends \Doctrine\Tests\OrmFunctionalTestCase
 {
+    use VerifyDeprecations;
+
     protected function setUp()
     {
         $this->useModelSet('ddc3699');
 
         parent::setUp();
+    }
+
+    /** @after */
+    public function ensureTestGeneratedDeprecationMessages() : void
+    {
+        $this->assertHasDeprecationMessages();
     }
 
     /**
@@ -42,12 +51,12 @@ class DDC3597Test extends \Doctrine\Tests\OrmFunctionalTestCase
 
         // fixtures loaded
         /* @var $unManagedChild DDC3699Child */
-        $unManagedChild = $this->_em->find(DDC3699Child::CLASSNAME, $id);
+        $unManagedChild = $this->_em->find(DDC3699Child::class, $id);
 
         $this->_em->detach($unManagedChild);
 
         // make it managed again
-        $this->_em->find(DDC3699Child::CLASSNAME, $id);
+        $this->_em->find(DDC3699Child::class, $id);
 
         $unManagedChild->childField  = 'modifiedChildValue';
         $unManagedChild->parentField = 'modifiedParentValue';
@@ -84,11 +93,11 @@ class DDC3597Test extends \Doctrine\Tests\OrmFunctionalTestCase
         $this->_em->clear();
 
         /* @var $unmanagedChild DDC3699Child */
-        $unmanagedChild = $this->_em->find(DDC3699Child::CLASSNAME, $id);
+        $unmanagedChild = $this->_em->find(DDC3699Child::class, $id);
         $this->_em->detach($unmanagedChild);
 
         // make it managed again
-        $this->_em->find(DDC3699Child::CLASSNAME, $id);
+        $this->_em->find(DDC3699Child::class, $id);
 
         $unmanagedChild->childField  = 'modifiedChildValue';
         $unmanagedChild->parentField = 'modifiedParentValue';
