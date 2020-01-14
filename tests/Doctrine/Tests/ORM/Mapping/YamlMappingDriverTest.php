@@ -2,15 +2,22 @@
 
 namespace Doctrine\Tests\ORM\Mapping;
 
-use Doctrine\ORM\Mapping\ClassMetadata,
-    Doctrine\ORM\Mapping\Driver\YamlDriver;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\ClassMetadataFactory;
+use Doctrine\ORM\Mapping\Driver\YamlDriver;
+use Doctrine\Tests\Models\DirectoryTree\Directory;
+use Doctrine\Tests\Models\DirectoryTree\File;
+use Doctrine\Tests\Models\Generic\SerializationModel;
+use Doctrine\Tests\VerifyDeprecations;
+use Symfony\Component\Yaml\Yaml;
 
 class YamlMappingDriverTest extends AbstractMappingDriverTest
 {
+    use VerifyDeprecations;
+
     protected function _loadDriver()
     {
-        if (!class_exists('Symfony\Component\Yaml\Yaml', true)) {
+        if (!class_exists(Yaml::class, true)) {
             $this->markTestSkipped('Please install Symfony YAML Component into the include path of your PHP installation.');
         }
 
@@ -25,20 +32,21 @@ class YamlMappingDriverTest extends AbstractMappingDriverTest
     public function testJoinTablesWithMappedSuperclassForYamlDriver()
     {
         $yamlDriver = $this->_loadDriver();
-        $yamlDriver->getLocator()->addPaths(array(__DIR__ . DIRECTORY_SEPARATOR . 'yaml'));
+        $yamlDriver->getLocator()->addPaths([__DIR__ . DIRECTORY_SEPARATOR . 'yaml']);
 
         $em = $this->_getTestEntityManager();
         $em->getConfiguration()->setMetadataDriverImpl($yamlDriver);
         $factory = new ClassMetadataFactory();
         $factory->setEntityManager($em);
 
-        $classPage = new ClassMetadata('Doctrine\Tests\Models\DirectoryTree\File');
-        $classPage = $factory->getMetadataFor('Doctrine\Tests\Models\DirectoryTree\File');
-        $this->assertEquals('Doctrine\Tests\Models\DirectoryTree\File', $classPage->associationMappings['parentDirectory']['sourceEntity']);
+        $classPage = new ClassMetadata(File::class);
+        $classPage = $factory->getMetadataFor(File::class);
+        $this->assertEquals(File::class, $classPage->associationMappings['parentDirectory']['sourceEntity']);
 
-        $classDirectory = new ClassMetadata('Doctrine\Tests\Models\DirectoryTree\Directory');
-        $classDirectory = $factory->getMetadataFor('Doctrine\Tests\Models\DirectoryTree\Directory');
-        $this->assertEquals('Doctrine\Tests\Models\DirectoryTree\Directory', $classDirectory->associationMappings['parentDirectory']['sourceEntity']);
+        $classDirectory = new ClassMetadata(Directory::class);
+        $classDirectory = $factory->getMetadataFor(Directory::class);
+        $this->assertEquals(Directory::class, $classDirectory->associationMappings['parentDirectory']['sourceEntity']);
+        $this->assertHasDeprecationMessages();
     }
 
     /**
@@ -49,7 +57,7 @@ class YamlMappingDriverTest extends AbstractMappingDriverTest
      */
     public function testInvalidMappingFileException()
     {
-        $this->createClassMetadata('Doctrine\Tests\Models\Generic\SerializationModel');
+        $this->createClassMetadata(SerializationModel::class);
     }
 
     /**
@@ -57,7 +65,7 @@ class YamlMappingDriverTest extends AbstractMappingDriverTest
      */
     public function testSpacesShouldBeIgnoredWhenUseExplode()
     {
-        $metadata = $this->createClassMetadata(__NAMESPACE__.'\DDC2069Entity');
+        $metadata = $this->createClassMetadata(DDC2069Entity::class);
         $unique   = $metadata->table['uniqueConstraints'][0]['columns'];
         $indexes  = $metadata->table['indexes'][0]['columns'];
 
@@ -72,6 +80,13 @@ class YamlMappingDriverTest extends AbstractMappingDriverTest
 
         $this->assertEquals(255, $nameField['length']);
         $this->assertEquals(255, $valueField['length']);
+        $this->assertHasDeprecationMessages();
+    }
+
+    public function testDeprecation() : void
+    {
+        $this->createClassMetadata(DDC2069Entity::class);
+        $this->expectDeprecationMessage('YAML mapping driver is deprecated and will be removed in Doctrine ORM 3.0, please migrate to annotation or XML driver.');
     }
 
 }

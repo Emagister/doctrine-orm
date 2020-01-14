@@ -6,6 +6,8 @@ use Doctrine\ORM\Cache\CacheConfiguration;
 use Doctrine\ORM\Cache\CacheFactory;
 use Doctrine\ORM\Cache\QueryCacheValidator;
 use Doctrine\ORM\Cache\Logging\CacheLogger;
+use Doctrine\ORM\Cache\TimestampQueryCacheValidator;
+use Doctrine\ORM\Cache\TimestampRegion;
 use Doctrine\Tests\DoctrineTestCase;
 
 /**
@@ -67,9 +69,14 @@ class CacheConfigTest extends DoctrineTestCase
 
     public function testSetGetQueryValidator()
     {
+        $factory = $this->createMock(CacheFactory::class);
+        $factory->method('getTimestampRegion')->willReturn($this->createMock(TimestampRegion::class));
+
+        $this->config->setCacheFactory($factory);
+
         $validator = $this->createMock(QueryCacheValidator::class);
 
-        $this->assertInstanceOf('Doctrine\ORM\Cache\TimestampQueryCacheValidator', $this->config->getQueryValidator());
+        $this->assertInstanceOf(TimestampQueryCacheValidator::class, $this->config->getQueryValidator());
 
         $this->config->setQueryValidator($validator);
 

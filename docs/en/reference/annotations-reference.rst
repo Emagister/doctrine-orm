@@ -37,6 +37,7 @@ Index
 -  :ref:`@ColumnResult <annref_column_result>`
 -  :ref:`@Cache <annref_cache>`
 -  :ref:`@ChangeTrackingPolicy <annref_changetrackingpolicy>`
+-  :ref:`@CustomIdGenerator <annref_customidgenerator>`
 -  :ref:`@DiscriminatorColumn <annref_discriminatorcolumn>`
 -  :ref:`@DiscriminatorMap <annref_discriminatormap>`
 -  :ref:`@Embeddable <annref_embeddable>`
@@ -112,7 +113,7 @@ Optional attributes:
 -  **unique**: Boolean value to determine if the value of the column
    should be unique across all rows of the underlying entities table.
 
--  **nullable**: Determines if NULL values allowed for this column.
+-  **nullable**: Determines if NULL values allowed for this column. If not specified, default value is false.
 
 -  **options**: Array of additional options:
 
@@ -132,6 +133,9 @@ Optional attributes:
       be supported by all vendors).
 
    -  ``collation``: The collation of the column (only supported by Drizzle, Mysql, PostgreSQL>=9.1, Sqlite and SQLServer).
+
+   -  ``check``: Adds a check constraint type to the column (might not
+      be supported by all vendors).
 
 -  **columnDefinition**: DDL SQL snippet that starts after the column
    name and specifies the complete (non-portable!) column definition.
@@ -177,7 +181,7 @@ Examples:
     protected $initials;
 
     /**
-     * @Column(type="integer", name="login_count" nullable=false, options={"unsigned":true, "default":0})
+     * @Column(type="integer", name="login_count", nullable=false, options={"unsigned":true, "default":0})
      */
     protected $loginCount;
 
@@ -232,6 +236,30 @@ Example:
      * @ChangeTrackingPolicy("NOTIFY")
      */
     class User {}
+
+.. _annref_customidgenerator:
+
+@CustomIdGenerator
+~~~~~~~~~~~~~~~~~~~~~
+
+This annotations allows you to specify a user-provided class to generate identifiers. This annotation only works when both :ref:`@Id <annref_id>` and :ref:`@GeneratedValue(strategy="CUSTOM") <annref_generatedvalue>` are specified.
+
+Required attributes:
+
+-  **class**: name of the class which should extend Doctrine\ORM\Id\AbstractIdGenerator
+
+Example:
+
+.. code-block:: php
+
+    <?php
+    /**
+     * @Id 
+     * @Column(type="integer")
+     * @GeneratedValue(strategy="CUSTOM")
+     * @CustomIdGenerator(class="My\Namespace\MyIdGenerator")
+     */
+    public $id;
 
 .. _annref_discriminatorcolumn:
 
@@ -290,9 +318,9 @@ depending on whether the classes are in the namespace or not.
 @Embeddable
 ~~~~~~~~~~~~~~~~~~~~~
 
-The embeddable is required on an entity targed to be embeddable inside
-another. It works together with the :ref:`@Embedded <annref_embedded>`
-annotation to establish the relationship between two entities.
+The embeddable annotation is required on a class, in order to make it
+embeddable inside an entity. It works together with the :ref:`@Embedded <annref_embedded>`
+annotation to establish the relationship between the two classes.
 
 .. code-block:: php
 
@@ -317,8 +345,8 @@ annotation to establish the relationship between two entities.
 @Embedded
 ~~~~~~~~~~~~~~~~~~~~~
 
-The embedded annotation is required on a member class varible targed to
-embed it's class argument inside it's own class.
+The embedded annotation is required on an entity's member variable,
+in order to specify that it is an embedded class.
 
 Required attributes:
 

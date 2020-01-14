@@ -2,14 +2,17 @@
 
 namespace Doctrine\Tests\ORM\Functional\Ticket;
 
-use Doctrine\Tests\Models\CMS\CmsUser;
 use Doctrine\Tests\Models\CMS\CmsGroup;
+use Doctrine\Tests\Models\CMS\CmsUser;
+use Doctrine\Tests\VerifyDeprecations;
 
 /**
  * @group DDC-1276
  */
 class DDC1276Test extends \Doctrine\Tests\OrmFunctionalTestCase
 {
+    use VerifyDeprecations;
+
     public function setUp()
     {
         $this->useModelSet('cms');
@@ -33,7 +36,7 @@ class DDC1276Test extends \Doctrine\Tests\OrmFunctionalTestCase
         $this->_em->flush();
         $this->_em->clear();
 
-        $user = $this->_em->find('Doctrine\Tests\Models\CMS\CmsUser', $user->id);
+        $user = $this->_em->find(CmsUser::class, $user->id);
         $cloned = clone $user;
 
         $this->assertSame($user->groups, $cloned->groups);
@@ -43,5 +46,6 @@ class DDC1276Test extends \Doctrine\Tests\OrmFunctionalTestCase
         $this->assertEquals(2, count($user->groups));
 
         $this->_em->flush();
+        $this->assertHasDeprecationMessages();
     }
 }
