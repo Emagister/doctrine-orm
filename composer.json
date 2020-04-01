@@ -1,5 +1,5 @@
 {
-    "name": "emagister/doctrine-orm",
+    "name": "doctrine/orm",
     "type": "library",
     "description": "Object-Relational-Mapper for PHP",
     "keywords": ["emagister", "orm", "database"],
